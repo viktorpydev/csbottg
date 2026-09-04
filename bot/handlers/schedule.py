@@ -14,10 +14,9 @@ router = Router()
 async def check_user_configured(message: Message):
     """Допоміжна функція перевірки, чи обрав користувач свої підгрупи."""
     user = await get_user(message.from_user.id)
-    has_all = bool(user and user.prog_group and user.math_group and user.ukr_group and user.english_group)
-    has_legacy = bool(user and user.opp_group and user.english_group)
+    has_any = bool(user and (user.prog_group or user.math_group or user.ukr_group or user.english_group or user.opp_group))
 
-    if not user or not (has_all or has_legacy):
+    if not user or not has_any:
         await message.answer(
             "⚠️ <b>Ви ще не налаштували свої підгрупи!</b>\n\n"
             "Будь ласка, скористайтеся командою /start або перейдіть у ⚙️ <b>Налаштування</b>, щоб обрати підгрупи.",
@@ -108,26 +107,25 @@ async def show_week_schedule(message: Message):
 async def toggle_week_num_view(callback: CallbackQuery):
     """Перегляд розкладу для конкретного номера навчального тижня."""
     user = await get_user(callback.from_user.id)
-    has_all = bool(user and user.prog_group and user.math_group and user.ukr_group and user.english_group)
-    has_legacy = bool(user and user.opp_group and user.english_group)
-
-    if not user or not (has_all or has_legacy):
-        await callback.answer("Спочатку оберіть підгрупи у налаштуваннях!", show_alert=True)
-        return
-
     target_week_num = int(callback.data.split(":", 1)[1])
     now = datetime.now(config.timezone)
     today = now.date()
     current_week_info = get_week_info(today)
 
+    prog_group = user.prog_group if user else None
+    math_group = user.math_group if user else None
+    ukr_group = user.ukr_group if user else None
+    english_group = user.english_group if user else None
+    opp_group = user.opp_group if user else None
+
     text = schedule_service.format_week_schedule(
-        prog_group=user.prog_group,
-        math_group=user.math_group,
-        ukr_group=user.ukr_group,
-        english_group=user.english_group,
+        prog_group=prog_group,
+        math_group=math_group,
+        ukr_group=ukr_group,
+        english_group=english_group,
         target_date=today,
         week_number_override=target_week_num,
-        opp_group=user.opp_group,
+        opp_group=opp_group,
     )
 
     try:

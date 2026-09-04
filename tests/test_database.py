@@ -88,3 +88,20 @@ async def test_legacy_opp_support():
     assert user.opp_group == "КН-1"
     active_users = await get_all_active_users()
     assert any(u.telegram_id == 555444 for u in active_users)
+
+
+@pytest.mark.asyncio
+async def test_partial_groups_active_user():
+    # Користувач, який обрав тільки мови програмування та математику, але ще не обрав англійську
+    await get_or_create_user(telegram_id=123987, full_name="Partial User", username="partial")
+    await update_user_prog_group(123987, "2")
+    await update_user_math_group(123987, "1")
+    await update_user_ukr_group(123987, "5")
+
+    user = await get_user(123987)
+    assert user.english_group is None
+    assert user.prog_group == "2"
+
+    active_users = await get_all_active_users()
+    assert any(u.telegram_id == 123987 for u in active_users)
+

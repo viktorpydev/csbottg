@@ -190,8 +190,11 @@ async def get_all_active_users() -> List[User]:
             SELECT * FROM users
             WHERE notifications_enabled = 1
               AND (
-                  (prog_group IS NOT NULL AND math_group IS NOT NULL AND ukr_group IS NOT NULL AND english_group IS NOT NULL)
-                  OR (opp_group IS NOT NULL AND english_group IS NOT NULL)
+                  prog_group IS NOT NULL
+                  OR math_group IS NOT NULL
+                  OR ukr_group IS NOT NULL
+                  OR english_group IS NOT NULL
+                  OR opp_group IS NOT NULL
               )
             """
         )

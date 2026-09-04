@@ -41,17 +41,21 @@ async def cmd_start(message: Message, state: FSMContext):
     )
 
     week_status = format_week_header()
-    is_configured = bool(user.prog_group and user.math_group and user.ukr_group and user.english_group)
+    is_configured = bool(user and (user.prog_group or user.math_group or user.ukr_group or user.english_group or user.opp_group))
 
     if is_configured:
+        prog_disp = f"група {user.prog_group}" if user.prog_group else "Не обрано"
+        math_disp = f"група {user.math_group}" if user.math_group else "Не обрано"
+        ukr_disp = f"група {user.ukr_group}" if user.ukr_group else "Не обрано"
+        eng_disp = user.english_group if user.english_group else "Не обрано"
         welcome_text = (
             f"👋 <b>Привіт, {message.from_user.first_name}!</b>\n\n"
             f"{week_status}\n\n"
             f"📌 <b>Ваші поточні налаштування:</b>\n"
-            f"   ▫️ 💻 Мови програмування: <b>група {user.prog_group}</b>\n"
-            f"   ▫️ 📐 Математика: <b>група {user.math_group}</b>\n"
-            f"   ▫️ 🇺🇦 Українська мова: <b>група {user.ukr_group}</b>\n"
-            f"   ▫️ 🇬🇧 Англійська мова: <b>{user.english_group}</b>\n"
+            f"   ▫️ 💻 Мови програмування: <b>{prog_disp}</b>\n"
+            f"   ▫️ 📐 Математика: <b>{math_disp}</b>\n"
+            f"   ▫️ 🇺🇦 Українська мова: <b>{ukr_disp}</b>\n"
+            f"   ▫️ 🇬🇧 Англійська мова: <b>{eng_disp}</b>\n"
             f"   ▫️ ⏰ Нагадування: <b>{user.notify_minutes} хв</b> до пари ({'🔔 увімкнено' if user.notifications_enabled else '🔕 вимкнено'})\n\n"
             f"Використовуйте кнопки меню нижче для перегляду розкладу або налаштувань. 👇"
         )
@@ -127,7 +131,7 @@ async def on_ukr_selected(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         f"✅ Українська мова: <b>група {ukr_group}</b>\n\n"
         f"👉 <b>Крок 4/4: Оберіть вашу підгрупу з Англійської мови:</b>",
-        reply_markup=get_english_groups_keyboard(eng_groups),
+        reply_markup=get_english_groups_keyboard(eng_groups, show_skip=True),
         parse_mode="HTML"
     )
 
@@ -136,19 +140,23 @@ async def on_ukr_selected(callback: CallbackQuery, state: FSMContext):
 async def on_english_selected(callback: CallbackQuery, state: FSMContext):
     """Обробка вибору підгрупи з англійської мови."""
     eng_group = callback.data.split(":", 1)[1]
-    await update_user_english_group(callback.from_user.id, eng_group)
+    if eng_group != "skip":
+        await update_user_english_group(callback.from_user.id, eng_group)
+        await callback.answer(f"Англійська: {eng_group}")
+    else:
+        await callback.answer("Англійську мову пропущено")
     await state.clear()
 
     user = await get_or_create_user(callback.from_user.id)
-    await callback.answer(f"Англійська: {eng_group}")
+    eng_disp = user.english_group or "Не обрано"
 
     finish_text = (
         f"🎉 <b>Налаштування успішно завершено!</b>\n\n"
         f"📌 <b>Ваші обрані групи:</b>\n"
-        f"   ▫️ 💻 Мови програмування: <b>група {user.prog_group}</b>\n"
-        f"   ▫️ 📐 Математика: <b>група {user.math_group}</b>\n"
-        f"   ▫️ 🇺🇦 Українська мова: <b>група {user.ukr_group}</b>\n"
-        f"   ▫️ 🇬🇧 Англійська мова: <b>{user.english_group}</b>\n\n"
+        f"   ▫️ 💻 Мови програмування: <b>група {user.prog_group or 'Не обрано'}</b>\n"
+        f"   ▫️ 📐 Математика: <b>група {user.math_group or 'Не обрано'}</b>\n"
+        f"   ▫️ 🇺🇦 Українська мова: <b>група {user.ukr_group or 'Не обрано'}</b>\n"
+        f"   ▫️ 🇬🇧 Англійська мова: <b>{eng_disp}</b>\n\n"
         f"🔔 Нагадування: <b>за {user.notify_minutes} хв</b> до кожної пари.\n\n"
         f"Тепер ви можете зручно переглядати свій розклад через кнопки нижче. 👇"
     )

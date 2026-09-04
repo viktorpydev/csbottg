@@ -63,10 +63,16 @@ def get_english_groups_keyboard(
     groups: List[str],
     current: Optional[str] = None,
     prefix: str = "select_eng",
-    show_back: bool = False
+    show_back: bool = False,
+    show_skip: bool = False
 ) -> InlineKeyboardMarkup:
     """Генерація інлайн-клавіатури з доступними підгрупами з англійської (A53-A67)."""
-    return _build_grid_keyboard(groups, current=current, prefix=prefix, cols=3, show_back=show_back)
+    kb = _build_grid_keyboard(groups, current=current, prefix=prefix, cols=3, show_back=show_back)
+    if show_skip:
+        kb.inline_keyboard.append([
+            InlineKeyboardButton(text="⏩ Пропустити (обрати пізніше)", callback_data=f"{prefix}:skip")
+        ])
+    return kb
 
 
 def get_opp_groups_keyboard(
