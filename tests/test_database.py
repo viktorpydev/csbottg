@@ -6,8 +6,11 @@ from bot.database.db import init_db
 from bot.database.models import (
     get_or_create_user,
     get_user,
-    update_user_opp_group,
+    update_user_prog_group,
+    update_user_math_group,
+    update_user_ukr_group,
     update_user_english_group,
+    update_user_opp_group,
     update_user_notification_settings,
     get_all_active_users
 )
@@ -35,7 +38,9 @@ async def test_user_creation_and_retrieval():
     )
     assert user.telegram_id == 11223344
     assert user.full_name == "Тестовий Студент"
-    assert user.opp_group is None
+    assert user.prog_group is None
+    assert user.math_group is None
+    assert user.ukr_group is None
     assert user.english_group is None
     assert user.notify_minutes == 10
     assert user.notifications_enabled is True
@@ -49,14 +54,18 @@ async def test_user_creation_and_retrieval():
 @pytest.mark.asyncio
 async def test_update_groups_and_notifications():
     await get_or_create_user(telegram_id=998877, full_name="User 2", username="user2")
-    
-    await update_user_opp_group(998877, "ІПЗ-21")
-    await update_user_english_group(998877, "Eng-B2.1")
+
+    await update_user_prog_group(998877, "2")
+    await update_user_math_group(998877, "1")
+    await update_user_ukr_group(998877, "6")
+    await update_user_english_group(998877, "A55")
     await update_user_notification_settings(998877, notify_minutes=15, notifications_enabled=True)
 
     user = await get_user(998877)
-    assert user.opp_group == "ІПЗ-21"
-    assert user.english_group == "Eng-B2.1"
+    assert user.prog_group == "2"
+    assert user.math_group == "1"
+    assert user.ukr_group == "6"
+    assert user.english_group == "A55"
     assert user.notify_minutes == 15
     assert user.notifications_enabled is True
 
@@ -68,3 +77,14 @@ async def test_update_groups_and_notifications():
     await update_user_notification_settings(998877, notifications_enabled=False)
     active_users_after = await get_all_active_users()
     assert not any(u.telegram_id == 998877 for u in active_users_after)
+
+
+@pytest.mark.asyncio
+async def test_legacy_opp_support():
+    await get_or_create_user(telegram_id=555444, full_name="User Legacy", username="legacy")
+    await update_user_opp_group(555444, "КН-1")
+    await update_user_english_group(555444, "A53")
+    user = await get_user(555444)
+    assert user.opp_group == "КН-1"
+    active_users = await get_all_active_users()
+    assert any(u.telegram_id == 555444 for u in active_users)

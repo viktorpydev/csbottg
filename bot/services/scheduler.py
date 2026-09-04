@@ -35,15 +35,22 @@ async def check_and_send_reminders(bot: Bot):
             return
 
         for user in users:
-            if not user.opp_group or not user.english_group or not user.notifications_enabled:
+            if not user.notifications_enabled:
+                continue
+            has_new_groups = bool(user.prog_group and user.math_group and user.ukr_group and user.english_group)
+            has_legacy_groups = bool(user.opp_group and user.english_group)
+            if not (has_new_groups or has_legacy_groups):
                 continue
 
             notify_advance = user.notify_minutes if user.notify_minutes is not None else config.DEFAULT_NOTIFY_MINUTES
             
             _, lessons = schedule_service.get_lessons_for_date(
-                opp_group=user.opp_group,
+                prog_group=user.prog_group,
+                math_group=user.math_group,
+                ukr_group=user.ukr_group,
                 english_group=user.english_group,
-                target_date=today
+                target_date=today,
+                opp_group=user.opp_group,
             )
 
             for lesson in lessons:

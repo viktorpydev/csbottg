@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from bot.config import config
 from bot.database.models import get_user
-from bot.keyboards.inline import get_week_pagination_keyboard, get_opp_groups_keyboard
+from bot.keyboards.inline import get_week_pagination_keyboard
 from bot.services.schedule_service import schedule_service
 from bot.services.week_service import get_week_info
 
@@ -12,14 +12,15 @@ router = Router()
 
 
 async def check_user_configured(message: Message):
-    """Допоміжна функція перевірки, чи обрав користувач свої групи."""
+    """Допоміжна функція перевірки, чи обрав користувач свої підгрупи."""
     user = await get_user(message.from_user.id)
-    if not user or not user.opp_group or not user.english_group:
-        opp_groups = schedule_service.get_opp_groups()
+    has_all = bool(user and user.prog_group and user.math_group and user.ukr_group and user.english_group)
+    has_legacy = bool(user and user.opp_group and user.english_group)
+
+    if not user or not (has_all or has_legacy):
         await message.answer(
-            "⚠️ <b>Ви ще не налаштували свої групи!</b>\n\n"
-            "Будь ласка, оберіть вашу основну групу ОПП:",
-            reply_markup=get_opp_groups_keyboard(opp_groups),
+            "⚠️ <b>Ви ще не налаштували свої підгрупи!</b>\n\n"
+            "Будь ласка, скористайтеся командою /start або перейдіть у ⚙️ <b>Налаштування</b>, щоб обрати підгрупи.",
             parse_mode="HTML"
         )
         return None
@@ -37,10 +38,13 @@ async def show_today_schedule(message: Message):
     now = datetime.now(config.timezone)
     today = now.date()
     text = schedule_service.format_day_schedule(
-        opp_group=user.opp_group,
+        prog_group=user.prog_group,
+        math_group=user.math_group,
+        ukr_group=user.ukr_group,
         english_group=user.english_group,
         target_date=today,
-        title_prefix="Розклад"
+        title_prefix="Розклад",
+        opp_group=user.opp_group,
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
 
@@ -56,10 +60,13 @@ async def show_tomorrow_schedule(message: Message):
     now = datetime.now(config.timezone)
     tomorrow = now.date() + timedelta(days=1)
     text = schedule_service.format_day_schedule(
-        opp_group=user.opp_group,
+        prog_group=user.prog_group,
+        math_group=user.math_group,
+        ukr_group=user.ukr_group,
         english_group=user.english_group,
         target_date=tomorrow,
-        title_prefix="Розклад"
+        title_prefix="Розклад",
+        opp_group=user.opp_group,
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
 
@@ -77,10 +84,13 @@ async def show_week_schedule(message: Message):
     week_info = get_week_info(today)
 
     text = schedule_service.format_week_schedule(
-        opp_group=user.opp_group,
+        prog_group=user.prog_group,
+        math_group=user.math_group,
+        ukr_group=user.ukr_group,
         english_group=user.english_group,
         target_date=today,
-        week_number_override=week_info.week_number
+        week_number_override=week_info.week_number,
+        opp_group=user.opp_group,
     )
 
     await message.answer(
@@ -98,8 +108,11 @@ async def show_week_schedule(message: Message):
 async def toggle_week_num_view(callback: CallbackQuery):
     """Перегляд розкладу для конкретного номера навчального тижня."""
     user = await get_user(callback.from_user.id)
-    if not user or not user.opp_group or not user.english_group:
-        await callback.answer("Спочатку оберіть групу!", show_alert=True)
+    has_all = bool(user and user.prog_group and user.math_group and user.ukr_group and user.english_group)
+    has_legacy = bool(user and user.opp_group and user.english_group)
+
+    if not user or not (has_all or has_legacy):
+        await callback.answer("Спочатку оберіть підгрупи у налаштуваннях!", show_alert=True)
         return
 
     target_week_num = int(callback.data.split(":", 1)[1])
@@ -108,10 +121,13 @@ async def toggle_week_num_view(callback: CallbackQuery):
     current_week_info = get_week_info(today)
 
     text = schedule_service.format_week_schedule(
-        opp_group=user.opp_group,
+        prog_group=user.prog_group,
+        math_group=user.math_group,
+        ukr_group=user.ukr_group,
         english_group=user.english_group,
         target_date=today,
-        week_number_override=target_week_num
+        week_number_override=target_week_num,
+        opp_group=user.opp_group,
     )
 
     try:
@@ -139,8 +155,11 @@ async def show_now_status(message: Message):
 
     now = datetime.now(config.timezone)
     text = schedule_service.format_now_schedule(
-        opp_group=user.opp_group,
+        prog_group=user.prog_group,
+        math_group=user.math_group,
+        ukr_group=user.ukr_group,
         english_group=user.english_group,
-        current_dt=now
+        current_dt=now,
+        opp_group=user.opp_group,
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)

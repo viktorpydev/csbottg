@@ -5,11 +5,15 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
 from bot.database.models import (
     get_or_create_user,
-    update_user_opp_group,
+    update_user_prog_group,
+    update_user_math_group,
+    update_user_ukr_group,
     update_user_english_group
 )
 from bot.keyboards.inline import (
-    get_opp_groups_keyboard,
+    get_prog_groups_keyboard,
+    get_math_groups_keyboard,
+    get_ukr_groups_keyboard,
     get_english_groups_keyboard
 )
 from bot.keyboards.reply import get_main_menu_keyboard
@@ -20,7 +24,9 @@ router = Router()
 
 
 class RegistrationState(StatesGroup):
-    choosing_opp = State()
+    choosing_prog = State()
+    choosing_math = State()
+    choosing_ukr = State()
     choosing_english = State()
 
 
@@ -35,15 +41,18 @@ async def cmd_start(message: Message, state: FSMContext):
     )
 
     week_status = format_week_header()
+    is_configured = bool(user.prog_group and user.math_group and user.ukr_group and user.english_group)
 
-    if user.opp_group and user.english_group:
+    if is_configured:
         welcome_text = (
             f"👋 <b>Привіт, {message.from_user.first_name}!</b>\n\n"
             f"{week_status}\n\n"
             f"📌 <b>Ваші поточні налаштування:</b>\n"
-            f"   ▫️ ОПП група: <b>{user.opp_group}</b>\n"
-            f"   ▫️ Група з англійської: <b>{user.english_group}</b>\n"
-            f"   ▫️ Нагадування: <b>{user.notify_minutes} хв</b> до пари ({'🔔 увімкнено' if user.notifications_enabled else '🔕 вимкнено'})\n\n"
+            f"   ▫️ 💻 Мови програмування: <b>група {user.prog_group}</b>\n"
+            f"   ▫️ 📐 Математика: <b>група {user.math_group}</b>\n"
+            f"   ▫️ 🇺🇦 Українська мова: <b>група {user.ukr_group}</b>\n"
+            f"   ▫️ 🇬🇧 Англійська мова: <b>{user.english_group}</b>\n"
+            f"   ▫️ ⏰ Нагадування: <b>{user.notify_minutes} хв</b> до пари ({'🔔 увімкнено' if user.notifications_enabled else '🔕 вимкнено'})\n\n"
             f"Використовуйте кнопки меню нижче для перегляду розкладу або налаштувань. 👇"
         )
         await message.answer(
@@ -52,36 +61,72 @@ async def cmd_start(message: Message, state: FSMContext):
             parse_mode="HTML"
         )
     else:
-        # Користувачу потрібне початкове налаштування
-        opp_groups = schedule_service.get_opp_groups()
-        await state.set_state(RegistrationState.choosing_opp)
-        
+        # Початок 4-крокового вибору підгруп
+        prog_groups = schedule_service.get_prog_groups()
+        await state.set_state(RegistrationState.choosing_prog)
+
         intro_text = (
             f"👋 <b>Вітаю у боті розкладу та нагадувань!</b>\n\n"
             f"{week_status}\n\n"
-            f"Щоб сформувати персональний розклад та отримувати своєчасні сповіщення, давайте оберемо ваші групи.\n\n"
-            f"👉 <b>Крок 1/2: Оберіть вашу основну академічну групу (ОПП):</b>"
+            f"Для формування вашого точного розкладу та нагадувань оберіть підгрупи з 4 дисциплін:\n\n"
+            f"👉 <b>Крок 1/4: Оберіть вашу підгрупу з Мов програмування (1–6):</b>"
         )
         await message.answer(
             intro_text,
-            reply_markup=get_opp_groups_keyboard(opp_groups),
+            reply_markup=get_prog_groups_keyboard(prog_groups),
             parse_mode="HTML"
         )
 
 
-@router.callback_query(F.data.startswith("select_opp:"))
-async def on_opp_selected(callback: CallbackQuery, state: FSMContext):
-    """Обробка вибору групи ОПП."""
-    opp_group = callback.data.split(":", 1)[1]
-    await update_user_opp_group(callback.from_user.id, opp_group)
-    
+@router.callback_query(F.data.startswith("select_prog:"))
+async def on_prog_selected(callback: CallbackQuery, state: FSMContext):
+    """Обробка вибору групи з програмування."""
+    prog_group = callback.data.split(":", 1)[1]
+    await update_user_prog_group(callback.from_user.id, prog_group)
+
+    math_groups = schedule_service.get_math_groups()
+    await state.set_state(RegistrationState.choosing_math)
+
+    await callback.answer(f"Програмування: група {prog_group}")
+    await callback.message.edit_text(
+        f"✅ Мови програмування: <b>група {prog_group}</b>\n\n"
+        f"👉 <b>Крок 2/4: Оберіть вашу підгрупу з Математики (1–3):</b>",
+        reply_markup=get_math_groups_keyboard(math_groups),
+        parse_mode="HTML"
+    )
+
+
+@router.callback_query(F.data.startswith("select_math:"))
+async def on_math_selected(callback: CallbackQuery, state: FSMContext):
+    """Обробка вибору групи з математики."""
+    math_group = callback.data.split(":", 1)[1]
+    await update_user_math_group(callback.from_user.id, math_group)
+
+    ukr_groups = schedule_service.get_ukr_groups()
+    await state.set_state(RegistrationState.choosing_ukr)
+
+    await callback.answer(f"Математика: група {math_group}")
+    await callback.message.edit_text(
+        f"✅ Математика: <b>група {math_group}</b>\n\n"
+        f"👉 <b>Крок 3/4: Оберіть вашу підгрупу з Української мови (5–8):</b>",
+        reply_markup=get_ukr_groups_keyboard(ukr_groups),
+        parse_mode="HTML"
+    )
+
+
+@router.callback_query(F.data.startswith("select_ukr:"))
+async def on_ukr_selected(callback: CallbackQuery, state: FSMContext):
+    """Обробка вибору групи з української мови."""
+    ukr_group = callback.data.split(":", 1)[1]
+    await update_user_ukr_group(callback.from_user.id, ukr_group)
+
     eng_groups = schedule_service.get_english_groups()
     await state.set_state(RegistrationState.choosing_english)
-    
-    await callback.answer(f"Обрано: {opp_group}")
+
+    await callback.answer(f"Українська мова: група {ukr_group}")
     await callback.message.edit_text(
-        f"✅ Основна група: <b>{opp_group}</b>\n\n"
-        f"👉 <b>Крок 2/2: Тепер оберіть вашу підгрупу з англійської мови:</b>",
+        f"✅ Українська мова: <b>група {ukr_group}</b>\n\n"
+        f"👉 <b>Крок 4/4: Оберіть вашу підгрупу з Англійської мови:</b>",
         reply_markup=get_english_groups_keyboard(eng_groups),
         parse_mode="HTML"
     )
@@ -89,20 +134,23 @@ async def on_opp_selected(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("select_eng:"))
 async def on_english_selected(callback: CallbackQuery, state: FSMContext):
-    """Обробка вибору підгрупи з англійської."""
+    """Обробка вибору підгрупи з англійської мови."""
     eng_group = callback.data.split(":", 1)[1]
     await update_user_english_group(callback.from_user.id, eng_group)
     await state.clear()
 
     user = await get_or_create_user(callback.from_user.id)
-    await callback.answer(f"Обрано: {eng_group}")
+    await callback.answer(f"Англійська: {eng_group}")
 
     finish_text = (
         f"🎉 <b>Налаштування успішно завершено!</b>\n\n"
-        f"📚 ОПП група: <b>{user.opp_group}</b>\n"
-        f"🇬🇧 Англійська: <b>{user.english_group}</b>\n"
+        f"📌 <b>Ваші обрані групи:</b>\n"
+        f"   ▫️ 💻 Мови програмування: <b>група {user.prog_group}</b>\n"
+        f"   ▫️ 📐 Математика: <b>група {user.math_group}</b>\n"
+        f"   ▫️ 🇺🇦 Українська мова: <b>група {user.ukr_group}</b>\n"
+        f"   ▫️ 🇬🇧 Англійська мова: <b>{user.english_group}</b>\n\n"
         f"🔔 Нагадування: <b>за {user.notify_minutes} хв</b> до кожної пари.\n\n"
-        f"Тепер ви можете переглядати свій розклад через меню нижче."
+        f"Тепер ви можете зручно переглядати свій розклад через кнопки нижче. 👇"
     )
 
     await callback.message.edit_text(
