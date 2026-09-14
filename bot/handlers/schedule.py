@@ -44,6 +44,8 @@ async def show_today_schedule(message: Message):
         target_date=today,
         title_prefix="Розклад",
         opp_group=user.opp_group,
+        has_management=user.has_management,
+        pe_slots=user.pe_slots,
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
 
@@ -66,6 +68,8 @@ async def show_tomorrow_schedule(message: Message):
         target_date=tomorrow,
         title_prefix="Розклад",
         opp_group=user.opp_group,
+        has_management=user.has_management,
+        pe_slots=user.pe_slots,
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
 
@@ -90,6 +94,8 @@ async def show_week_schedule(message: Message):
         target_date=today,
         week_number_override=week_info.week_number,
         opp_group=user.opp_group,
+        has_management=user.has_management,
+        pe_slots=user.pe_slots,
     )
 
     await message.answer(
@@ -117,6 +123,8 @@ async def toggle_week_num_view(callback: CallbackQuery):
     ukr_group = user.ukr_group if user else None
     english_group = user.english_group if user else None
     opp_group = user.opp_group if user else None
+    has_mgmt = user.has_management if user else False
+    pe_slots = user.pe_slots if user else None
 
     text = schedule_service.format_week_schedule(
         prog_group=prog_group,
@@ -126,6 +134,8 @@ async def toggle_week_num_view(callback: CallbackQuery):
         target_date=today,
         week_number_override=target_week_num,
         opp_group=opp_group,
+        has_management=has_mgmt,
+        pe_slots=pe_slots,
     )
 
     try:
@@ -159,5 +169,7 @@ async def show_now_status(message: Message):
         english_group=user.english_group,
         current_dt=now,
         opp_group=user.opp_group,
+        has_management=user.has_management,
+        pe_slots=user.pe_slots,
     )
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)

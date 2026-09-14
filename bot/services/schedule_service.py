@@ -80,8 +80,12 @@ class Lesson:
 
     @property
     def type_emoji(self) -> str:
+        if self.category == "pe":
+            return "🏃"
         t = self.type.lower()
-        if "лекція" in t:
+        if "спорт" in t or "фіз" in t:
+            return "🏃"
+        elif "лекція" in t:
             return "📖"
         elif "практика" in t:
             return "✍️"
@@ -165,9 +169,16 @@ class Lesson:
         math_group: Optional[str] = None,
         ukr_group: Optional[str] = None,
         english_group: Optional[str] = None,
-        opp_group: Optional[str] = None
+        opp_group: Optional[str] = None,
+        has_management: bool = False,
     ) -> bool:
         """Перевірка, чи стосується заняття обраних підгруп користувача."""
+        if self.category == "management":
+            return bool(has_management)
+
+        if self.category == "pe":
+            return True
+
         g = self.group.strip()
         if g in ["all", "Всі", "КН-all", "лекція", "Лекція", "*"]:
             return True
@@ -204,7 +215,7 @@ class Lesson:
             return True
         return False
 
-    def matches_group(self, opp_group: str, english_group: str) -> bool:
+    def matches_group(self, opp_group: str, english_group: str, has_management: bool = False) -> bool:
         """Метод для зворотної сумісності зі старими викликами."""
         num = opp_group.replace("КН-", "") if opp_group.startswith("КН-") else opp_group
         return self.matches_user_groups(
@@ -212,8 +223,54 @@ class Lesson:
             math_group=num,
             ukr_group=num,
             english_group=english_group,
-            opp_group=opp_group
+            opp_group=opp_group,
+            has_management=has_management,
         )
+
+
+PAIR_TIME_MAP = {
+    "08:30": "09:50",
+    "10:00": "11:20",
+    "11:40": "13:00",
+    "13:30": "14:50",
+    "15:00": "16:20",
+    "16:30": "17:50",
+    "18:00": "19:20",
+}
+
+
+def parse_pe_slots(pe_slots_raw: Union[None, str, List[dict]]) -> List[dict]:
+    """Безпечний парсинг списку слотів фізичного виховання."""
+    if not pe_slots_raw:
+        return []
+    if isinstance(pe_slots_raw, list):
+        return pe_slots_raw
+    if isinstance(pe_slots_raw, str):
+        try:
+            data = json.loads(pe_slots_raw)
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+    return []
+
+
+def create_pe_lesson(day_of_week: int, start_time: str, end_time: Optional[str] = None) -> Lesson:
+    """Генерація картки заняття з фізичного виховання."""
+    end_t = end_time or PAIR_TIME_MAP.get(start_time, "09:50")
+    return Lesson(
+        id=f"pe_{day_of_week}_{start_time.replace(':', '')}",
+        group="all",
+        subject="Фізичне виховання",
+        type="Практика",
+        teacher="Кафедра фізичного виховання",
+        room="Спорткомплекс",
+        day_of_week=day_of_week,
+        category="pe",
+        weeks="all",
+        start_time=start_time,
+        end_time=end_t,
+    )
 
 
 class ScheduleService:
@@ -322,6 +379,8 @@ class ScheduleService:
         ukr_group: Optional[str] = None,
         english_group: Optional[str] = None,
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> str:
         """Форматування охайного рядка обраних груп."""
         parts = []
@@ -335,6 +394,11 @@ class ScheduleService:
             parts.append(f"🇬🇧 {english_group}")
         if not parts and opp_group:
             parts.append(f"👥 {opp_group}")
+        if has_management:
+            parts.append("📊 Менеджмент")
+        pe_list = parse_pe_slots(pe_slots)
+        if pe_list:
+            parts.append(f"🏃 Фізвиховання ({len(pe_list)} пар)")
         return " | ".join(parts) if parts else "Не обрано"
 
     def get_lessons_for_day_and_week(
@@ -347,6 +411,8 @@ class ScheduleService:
         week_number: int = 1,
         week_type: int = 1,
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> List[Lesson]:
         """Фільтрація занять для конкретного дня та номера/парності тижня."""
         self._check_and_reload()
@@ -359,12 +425,20 @@ class ScheduleService:
                 ukr_group=ukr_group,
                 english_group=english_group,
                 opp_group=opp_group,
+                has_management=has_management,
             ):
                 continue
             if lesson.day_of_week != day_of_week:
                 continue
             if lesson.matches_week(week_number, week_type):
                 matched.append(lesson)
+
+        # Інжекція слотів фізичного виховання
+        for slot in parse_pe_slots(pe_slots):
+            if int(slot.get("day_of_week", -1)) == day_of_week:
+                st = slot.get("start_time", "08:30")
+                et = slot.get("end_time") or PAIR_TIME_MAP.get(st, "09:50")
+                matched.append(create_pe_lesson(day_of_week, st, et))
 
         matched.sort(key=lambda l: l.start_time)
         return matched
@@ -377,6 +451,8 @@ class ScheduleService:
         english_group: Optional[str] = None,
         target_date: Optional[date] = None,
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> Tuple[WeekInfo, List[Lesson]]:
         """Отримання занять для конкретної календарної дати."""
         self._check_and_reload()
@@ -394,12 +470,20 @@ class ScheduleService:
                 ukr_group=ukr_group,
                 english_group=english_group,
                 opp_group=opp_group,
+                has_management=has_management,
             ):
                 continue
             if lesson.day_of_week != day_of_week:
                 continue
             if lesson.matches_date(target_date, week_info.week_number, week_info.week_type):
                 matched.append(lesson)
+
+        # Інжекція слотів фізичного виховання
+        for slot in parse_pe_slots(pe_slots):
+            if int(slot.get("day_of_week", -1)) == day_of_week:
+                st = slot.get("start_time", "08:30")
+                et = slot.get("end_time") or PAIR_TIME_MAP.get(st, "09:50")
+                matched.append(create_pe_lesson(day_of_week, st, et))
 
         matched.sort(key=lambda l: l.start_time)
         return week_info, matched
@@ -435,6 +519,8 @@ class ScheduleService:
         target_date: Optional[date] = None,
         title_prefix: str = "Розклад",
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> str:
         """Форматування повного тексту розкладу на день."""
         self._check_and_reload()
@@ -448,6 +534,8 @@ class ScheduleService:
             english_group=english_group,
             target_date=target_date,
             opp_group=opp_group,
+            has_management=has_management,
+            pe_slots=pe_slots,
         )
         date_str = target_date.strftime("%d.%m.%Y")
         groups_line = self.format_groups_header(
@@ -456,6 +544,8 @@ class ScheduleService:
             ukr_group=ukr_group,
             english_group=english_group,
             opp_group=opp_group,
+            has_management=has_management,
+            pe_slots=pe_slots,
         )
 
         header = (
@@ -482,6 +572,8 @@ class ScheduleService:
         target_date: Optional[date] = None,
         week_number_override: Optional[int] = None,
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> str:
         """Форматування розкладу на всі 6 робочих днів конкретного навчального тижня."""
         self._check_and_reload()
@@ -500,6 +592,8 @@ class ScheduleService:
             ukr_group=ukr_group,
             english_group=english_group,
             opp_group=opp_group,
+            has_management=has_management,
+            pe_slots=pe_slots,
         )
 
         header = (
@@ -520,6 +614,8 @@ class ScheduleService:
                 week_number=week_num,
                 week_type=week_type,
                 opp_group=opp_group,
+                has_management=has_management,
+                pe_slots=pe_slots,
             )
             day_name = UKRAINIAN_WEEKDAYS[day_idx]
 
@@ -548,6 +644,8 @@ class ScheduleService:
         english_group: Optional[str] = None,
         current_dt: Optional[datetime] = None,
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> Tuple[Optional[Lesson], Optional[Lesson]]:
         """Пошук (поточного заняття, наступного заняття) на цей момент."""
         if current_dt is None:
@@ -563,6 +661,8 @@ class ScheduleService:
             english_group=english_group,
             target_date=current_date,
             opp_group=opp_group,
+            has_management=has_management,
+            pe_slots=pe_slots,
         )
         if not lessons:
             return None, None
@@ -589,6 +689,8 @@ class ScheduleService:
         english_group: Optional[str] = None,
         current_dt: Optional[datetime] = None,
         opp_group: Optional[str] = None,
+        has_management: bool = False,
+        pe_slots: Optional[Union[str, List[dict]]] = None,
     ) -> str:
         """Форматування повідомлення статусу щодо того, що відбувається прямо зараз."""
         if current_dt is None:
@@ -603,6 +705,8 @@ class ScheduleService:
             english_group=english_group,
             current_dt=current_dt,
             opp_group=opp_group,
+            has_management=has_management,
+            pe_slots=pe_slots,
         )
         groups_line = self.format_groups_header(
             prog_group=prog_group,
@@ -610,6 +714,8 @@ class ScheduleService:
             ukr_group=ukr_group,
             english_group=english_group,
             opp_group=opp_group,
+            has_management=has_management,
+            pe_slots=pe_slots,
         )
 
         header = (

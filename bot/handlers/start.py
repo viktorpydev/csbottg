@@ -17,7 +17,7 @@ from bot.keyboards.inline import (
     get_english_groups_keyboard
 )
 from bot.keyboards.reply import get_main_menu_keyboard
-from bot.services.schedule_service import schedule_service
+from bot.services.schedule_service import schedule_service, parse_pe_slots
 from bot.services.week_service import format_week_header
 
 router = Router()
@@ -48,6 +48,10 @@ async def cmd_start(message: Message, state: FSMContext):
         math_disp = f"група {user.math_group}" if user.math_group else "Не обрано"
         ukr_disp = f"група {user.ukr_group}" if user.ukr_group else "Не обрано"
         eng_disp = user.english_group if user.english_group else "Не обрано"
+        mgmt_disp = "Зареєстрований(-а) ✅" if user.has_management else "Не реєструвався(-лась) ❌"
+        pe_slots_list = parse_pe_slots(user.pe_slots)
+        pe_disp = f"Записаний(-а) ({len(pe_slots_list)} пар) ✅" if pe_slots_list else "Не відвідую ❌"
+
         welcome_text = (
             f"👋 <b>Привіт, {message.from_user.first_name}!</b>\n\n"
             f"{week_status}\n\n"
@@ -56,6 +60,8 @@ async def cmd_start(message: Message, state: FSMContext):
             f"   ▫️ 📐 Математика: <b>{math_disp}</b>\n"
             f"   ▫️ 🇺🇦 Українська мова: <b>{ukr_disp}</b>\n"
             f"   ▫️ 🇬🇧 Англійська мова: <b>{eng_disp}</b>\n"
+            f"   ▫️ 📊 Менеджмент: <b>{mgmt_disp}</b>\n"
+            f"   ▫️ 🏃 Фізвиховання: <b>{pe_disp}</b>\n"
             f"   ▫️ ⏰ Нагадування: <b>{user.notify_minutes} хв</b> до пари ({'🔔 увімкнено' if user.notifications_enabled else '🔕 вимкнено'})\n\n"
             f"Використовуйте кнопки меню нижче для перегляду розкладу або налаштувань. 👇"
         )
@@ -158,6 +164,7 @@ async def on_english_selected(callback: CallbackQuery, state: FSMContext):
         f"   ▫️ 🇺🇦 Українська мова: <b>група {user.ukr_group or 'Не обрано'}</b>\n"
         f"   ▫️ 🇬🇧 Англійська мова: <b>{eng_disp}</b>\n\n"
         f"🔔 Нагадування: <b>за {user.notify_minutes} хв</b> до кожної пари.\n\n"
+        f"💡 <i>Курс «Менеджмент» та пари з «Фізичного виховання» ви можете налаштувати у меню ⚙️ <b>Налаштування</b>.</i>\n\n"
         f"Тепер ви можете зручно переглядати свій розклад через кнопки нижче. 👇"
     )
 

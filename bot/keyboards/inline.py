@@ -1,6 +1,7 @@
 from typing import List, Optional
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.database.models import User
+from bot.services.schedule_service import parse_pe_slots
 
 
 def _build_grid_keyboard(
@@ -93,6 +94,9 @@ def get_settings_keyboard(user: User) -> InlineKeyboardMarkup:
     eng_text = user.english_group or "Не обрано"
     notify_text = f"{user.notify_minutes} хв до пари"
     toggle_text = "🔔 Увімкнено" if user.notifications_enabled else "🔕 Вимкнено"
+    mgmt_text = "Так ✅" if user.has_management else "Ні ❌"
+    pe_list = parse_pe_slots(user.pe_slots)
+    pe_text = f"Так ({len(pe_list)} пар) ✅" if pe_list else "Ні ❌"
 
     keyboard = [
         [
@@ -121,6 +125,18 @@ def get_settings_keyboard(user: User) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                text=f"📊 Менеджмент: {mgmt_text}",
+                callback_data="change_management"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=f"🏃 Фізвиховання: {pe_text}",
+                callback_data="change_pe"
+            )
+        ],
+        [
+            InlineKeyboardButton(
                 text=f"⏰ Час нагадування: {notify_text}",
                 callback_data="change_notify_time"
             )
@@ -132,6 +148,110 @@ def get_settings_keyboard(user: User) -> InlineKeyboardMarkup:
             )
         ]
     ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_management_keyboard(current: bool = False) -> InlineKeyboardMarkup:
+    """Клавіатура вибору реєстрації на курс Менеджмент та персональна ефективність."""
+    mark_yes = " ✅" if current else ""
+    mark_no = " ✅" if not current else ""
+    keyboard = [
+        [
+            InlineKeyboardButton(text=f"Так, я зареєстрований(-а){mark_yes}", callback_data="set_mgmt:1"),
+        ],
+        [
+            InlineKeyboardButton(text=f"Ні, не реєструвався(-лась){mark_no}", callback_data="set_mgmt:0"),
+        ],
+        [
+            InlineKeyboardButton(text="🔙 Назад до налаштувань", callback_data="back_to_settings")
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_pe_initial_keyboard() -> InlineKeyboardMarkup:
+    """Клавіатура первинного питання про запис на фізвиховання."""
+    keyboard = [
+        [
+            InlineKeyboardButton(text="✅ Так, записувався(-лась)", callback_data="set_pe_status:yes"),
+        ],
+        [
+            InlineKeyboardButton(text="❌ Ні, не записувався(-лась)", callback_data="set_pe_status:no"),
+        ],
+        [
+            InlineKeyboardButton(text="🔙 Назад до налаштувань", callback_data="back_to_settings")
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_pe_menu_keyboard(has_slots: bool = False) -> InlineKeyboardMarkup:
+    """Клавіатура головного меню керування заняттями з фізвиховання."""
+    keyboard = [
+        [
+            InlineKeyboardButton(text="➕ Додати пару з фізвиховання", callback_data="pe_pick_day"),
+        ]
+    ]
+    if has_slots:
+        keyboard.append([
+            InlineKeyboardButton(text="🗑️ Очистити всі мої пари", callback_data="pe_clear"),
+        ])
+    keyboard.append([
+        InlineKeyboardButton(text="❌ Я більше не відвідую (Ні)", callback_data="set_pe_status:no"),
+    ])
+    keyboard.append([
+        InlineKeyboardButton(text="🔙 Назад до налаштувань", callback_data="back_to_settings")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_pe_days_keyboard() -> InlineKeyboardMarkup:
+    """Клавіатура вибору дня тижня для фізвиховання."""
+    days = [
+        ("Понеділок", 0),
+        ("Вівторок", 1),
+        ("Середа", 2),
+        ("Четвер", 3),
+        ("П'ятниця", 4),
+        ("Субота", 5),
+    ]
+    keyboard = []
+    row = []
+    for name, d_idx in days:
+        row.append(InlineKeyboardButton(text=name, callback_data=f"pe_day:{d_idx}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    keyboard.append([
+        InlineKeyboardButton(text="🔙 Назад до фізвиховання", callback_data="change_pe")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_pe_slots_keyboard(day_idx: int) -> InlineKeyboardMarkup:
+    """Клавіатура вибору пари (часу) у вибраний день."""
+    pairs = [
+        ("1 пара (08:30)", "08:30"),
+        ("2 пара (10:00)", "10:00"),
+        ("3 пара (11:40)", "11:40"),
+        ("4 пара (13:30)", "13:30"),
+        ("5 пара (15:00)", "15:00"),
+        ("6 пара (16:30)", "16:30"),
+    ]
+    keyboard = []
+    row = []
+    for label, time_str in pairs:
+        row.append(InlineKeyboardButton(text=label, callback_data=f"pe_add_slot:{day_idx}:{time_str}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    keyboard.append([
+        InlineKeyboardButton(text="🔙 Назад до вибору дня", callback_data="pe_pick_day")
+    ])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 

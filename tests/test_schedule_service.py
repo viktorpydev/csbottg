@@ -12,8 +12,8 @@ def test_groups_loaded():
     assert prog_groups == ["1", "2", "3", "4", "5", "6"]
     assert math_groups == ["1", "2", "3"]
     assert ukr_groups == ["5", "6", "7", "8"]
-    assert "A53" in english_groups
-    assert "A67" in english_groups
+    assert "A51" in english_groups
+    assert "A65" in english_groups
 
 
 def test_schedule_filtering_monday_week_2():
@@ -112,13 +112,13 @@ def test_format_day_schedule():
         prog_group="1",
         math_group="1",
         ukr_group="8",
-        english_group="A53",
+        english_group="A51",
         target_date=date(2026, 9, 7)
     )
     assert "Пр-1" in text
     assert "Мат-1" in text
     assert "Укр-8" in text
-    assert "A53" in text
+    assert "A51" in text
     assert "Англійська мова" in text
     assert "3-407" in text
 
@@ -221,11 +221,11 @@ def test_parse_schedule_date_formats():
     assert parse_schedule_date("2026-09-11") == date(2026, 9, 11)
 
 
-def test_week_2_backup_rooms():
+def test_week_2_and_3_backup_rooms():
     schedule_service.reload()
     # 1. Перевірка понеділка 2-го тижня (07.09.2026)
     _, l_w2 = schedule_service.get_lessons_for_date(
-        prog_group="1", math_group="1", ukr_group="5", english_group="A53",
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
         target_date=date(2026, 9, 7)
     )
     discr_w2 = next(l for l in l_w2 if l.subject == "Дискретна математика")
@@ -233,22 +233,93 @@ def test_week_2_backup_rooms():
     assert "запасна: коридор укриття" in discr_w2.room
     assert "запасна: коридор укриття" in alg_w2.room
 
-    # 2. Перевірка понеділка 3-го тижня (14.09.2026) - запасної аудиторії немає
+    # 2. Перевірка понеділка 3-го тижня (14.09.2026) - запасна аудиторія присутня згідно з розкладом 3-го тижня
     _, l_w3 = schedule_service.get_lessons_for_date(
-        prog_group="1", math_group="1", ukr_group="5", english_group="A53",
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
         target_date=date(2026, 9, 14)
     )
     discr_w3 = next(l for l in l_w3 if l.subject == "Дискретна математика")
     alg_w3 = next(l for l in l_w3 if l.subject == "Алгебра та геометрія")
-    assert "запасна" not in discr_w3.room
-    assert "запасна" not in alg_w3.room
+    assert "запасна: коридор укриття" in discr_w3.room
+    assert "запасна: коридор укриття" in alg_w3.room
 
-    # 3. Перевірка суботи 2-го тижня (12.09.2026)
-    _, l_sat_w2 = schedule_service.get_lessons_for_date(
-        prog_group="1", math_group="1", ukr_group="5", english_group="A53",
-        target_date=date(2026, 9, 12)
+    # 3. Перевірка вівторка 3-го тижня (15.09.2026) для мов програмування
+    _, l_tue_w3 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 15)
     )
-    math_sat = next(l for l in l_sat_w2 if l.subject == "Математичний аналіз")
-    assert "запасна: ОНЛАЙН" in math_sat.room
+    prog_tue = next(l for l in l_tue_w3 if l.subject == "Мови програмування")
+    assert "запасна: музей - укриття" in prog_tue.room
+
+    # 4. Перевірка четверга 3-го тижня (17.09.2026) для гр. 5 мов програмування о 08:30
+    _, l_thu_w3 = schedule_service.get_lessons_for_date(
+        prog_group="5", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 17)
+    )
+    prog_thu_5 = next(l for l in l_thu_w3 if l.subject == "Мови програмування" and l.group == "5")
+    assert prog_thu_5.start_time == "08:30"
+    assert "запасна: електроніка (001)" in prog_thu_5.room
+
+    # 5. Перевірка суботи 3-го тижня (19.09.2026) для матаналізу
+    _, l_sat_w3 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 19)
+    )
+    math_sat_w3 = next(l for l in l_sat_w3 if l.subject == "Математичний аналіз")
+    assert "запасна: Музей-укриття" in math_sat_w3.room
+
+    # 6. Перевірка понеділка 4-го тижня (21.09.2026) - запасної немає
+    _, l_w4 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 21)
+    )
+    discr_w4 = next(l for l in l_w4 if l.subject == "Дискретна математика")
+    assert "запасна" not in discr_w4.room
+
+
+def test_management_course_filtering():
+    schedule_service.reload()
+    target_date = date(2026, 9, 14)  # Понеділок 3-го тижня
+
+    # 1. Якщо has_management=False -> курс не відображається
+    _, lessons_no = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=target_date, has_management=False
+    )
+    subjects_no = [l.subject for l in lessons_no]
+    assert "Менеджмент та персональна ефективність" not in subjects_no
+
+    # 2. Якщо has_management=True -> курс відображається
+    _, lessons_yes = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=target_date, has_management=True
+    )
+    subjects_yes = [l.subject for l in lessons_yes]
+    assert "Менеджмент та персональна ефективність" in subjects_yes
+
+
+def test_physical_education_injection():
+    schedule_service.reload()
+    target_date = date(2026, 9, 15)  # Вівторок (day_of_week=1)
+    pe_slots = [{"day_of_week": 1, "start_time": "10:00", "end_time": "11:20"}]
+
+    # 1. Без слотів
+    _, lessons_no = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=target_date, pe_slots=None
+    )
+    assert not any(l.subject == "Фізичне виховання" for l in lessons_no)
+
+    # 2. Зі слотом у вівторок
+    _, lessons_yes = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=target_date, pe_slots=pe_slots
+    )
+    pe_lesson = next((l for l in lessons_yes if l.subject == "Фізичне виховання"), None)
+    assert pe_lesson is not None
+    assert pe_lesson.start_time == "10:00"
+    assert pe_lesson.end_time == "11:20"
+    assert pe_lesson.room == "Спорткомплекс"
+    assert pe_lesson.type_emoji == "🏃"
 
 

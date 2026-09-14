@@ -12,6 +12,8 @@ from bot.database.models import (
     update_user_english_group,
     update_user_opp_group,
     update_user_notification_settings,
+    update_user_management,
+    update_user_pe_slots,
     get_all_active_users
 )
 
@@ -104,4 +106,52 @@ async def test_partial_groups_active_user():
 
     active_users = await get_all_active_users()
     assert any(u.telegram_id == 123987 for u in active_users)
+
+
+@pytest.mark.asyncio
+async def test_management_and_pe_updates():
+    await get_or_create_user(telegram_id=777888, full_name="User Mgmt PE", username="mgmt_pe")
+
+    # Initial defaults
+    u = await get_user(777888)
+    assert u.has_management is False
+    assert u.pe_slots is None
+
+    # Update management
+    await update_user_management(777888, True)
+    u_after_mgmt = await get_user(777888)
+    assert u_after_mgmt.has_management is True
+
+    # Update PE slots
+    slots_json = '[{"day_of_week": 1, "start_time": "10:00", "end_time": "11:20"}]'
+    await update_user_pe_slots(777888, slots_json)
+    u_after_pe = await get_user(777888)
+    assert u_after_pe.pe_slots == slots_json
+
+    # Clear PE slots
+    await update_user_pe_slots(777888, None)
+    u_cleared = await get_user(777888)
+    assert u_cleared.pe_slots is None
+
+
+@pytest.mark.asyncio
+async def test_english_group_migration():
+    # Insert a user with old A53 directly, then run init_db() to check migration to A51
+    from bot.database.db import get_db_connection
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "INSERT INTO users (telegram_id, full_name, english_group) VALUES (?, ?, ?)",
+            (443322, "Old English", "A53")
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+    # Run init_db which includes migration
+    await init_db()
+
+    user = await get_user(443322)
+    assert user.english_group == "A51"
+
 

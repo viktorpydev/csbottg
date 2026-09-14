@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     english_group TEXT,
     notify_minutes INTEGER DEFAULT 10,
     notifications_enabled INTEGER DEFAULT 1,
+    has_management INTEGER DEFAULT 0,
+    pe_slots TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -34,10 +36,42 @@ async def init_db():
         async with db.execute("PRAGMA table_info(users)") as cursor:
             columns = [row[1] for row in await cursor.fetchall()]
 
-        for col in ["prog_group", "math_group", "ukr_group"]:
+        for col, col_type in [
+            ("prog_group", "TEXT"),
+            ("math_group", "TEXT"),
+            ("ukr_group", "TEXT"),
+            ("has_management", "INTEGER DEFAULT 0"),
+            ("pe_slots", "TEXT DEFAULT NULL"),
+        ]:
             if col not in columns:
-                await db.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+                await db.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
         await db.commit()
+
+        # Міграція старих номерів груп англійської мови (A53-A67 -> A51-A65)
+        eng_remap = {
+            "A53": "A51",
+            "A54": "A52",
+            "A55": "A53",
+            "A56": "A54",
+            "A57": "A55",
+            "A58": "A56",
+            "A59": "A57",
+            "A60": "A58",
+            "A61": "A59",
+            "A62": "A60",
+            "A63": "A61",
+            "A64": "A62",
+            "A65": "A64",
+            "A66": "A65",
+            "A67": "A65",
+        }
+        for old_g, new_g in eng_remap.items():
+            await db.execute(
+                "UPDATE users SET english_group = ? WHERE english_group = ?",
+                (new_g, old_g)
+            )
+        await db.commit()
+
     logger.info(f"Database initialized at {db_path}")
 
 

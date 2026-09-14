@@ -51,6 +51,8 @@ async def check_and_send_reminders(bot: Bot):
                 english_group=user.english_group,
                 target_date=today,
                 opp_group=user.opp_group,
+                has_management=user.has_management,
+                pe_slots=user.pe_slots,
             )
 
             for lesson in lessons:

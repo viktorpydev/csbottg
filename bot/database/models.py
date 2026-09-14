@@ -17,6 +17,8 @@ class User:
     opp_group: Optional[str] = None
     notify_minutes: int = 10
     notifications_enabled: bool = True
+    has_management: bool = False
+    pe_slots: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -35,6 +37,8 @@ class User:
             opp_group=row["opp_group"] if "opp_group" in keys else None,
             notify_minutes=row["notify_minutes"] if row["notify_minutes"] is not None else 10,
             notifications_enabled=bool(row["notifications_enabled"]),
+            has_management=bool(row["has_management"]) if "has_management" in keys else False,
+            pe_slots=row["pe_slots"] if "pe_slots" in keys else None,
             created_at=str(row["created_at"]) if "created_at" in keys else None,
             updated_at=str(row["updated_at"]) if "updated_at" in keys else None,
         )
@@ -200,5 +204,31 @@ async def get_all_active_users() -> List[User]:
         )
         rows = await cursor.fetchall()
         return [User.from_row(row) for row in rows]
+    finally:
+        await conn.close()
+
+
+async def update_user_management(telegram_id: int, has_management: bool) -> None:
+    """Оновлення статусу реєстрації на курс Менеджмент та персональна ефективність."""
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE users SET has_management = ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?",
+            (1 if has_management else 0, telegram_id)
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def update_user_pe_slots(telegram_id: int, pe_slots: Optional[str]) -> None:
+    """Оновлення обраних слотів фізичного виховання (JSON рядок або None)."""
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE users SET pe_slots = ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?",
+            (pe_slots, telegram_id)
+        )
+        await conn.commit()
     finally:
         await conn.close()
