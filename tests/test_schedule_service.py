@@ -323,3 +323,140 @@ def test_physical_education_injection():
     assert pe_lesson.type_emoji == "🏃"
 
 
+def test_week_5_backup_rooms():
+    schedule_service.reload()
+
+    # 1. Понеділок 5-го тижня (28.09.2026)
+    _, l_mon_w5 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 28)
+    )
+    discr_mon = next(l for l in l_mon_w5 if l.subject == "Дискретна математика")
+    alg_mon = next(l for l in l_mon_w5 if l.subject == "Лінійна алгебра та аналітична геометрія")
+    assert "запасна: онлайн" in discr_mon.room
+    assert "запасна: онлайн" in alg_mon.room
+
+    # 2. Вівторок 5-го тижня (29.09.2026)
+    # Гр. 1
+    _, l_tue_1 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 29)
+    )
+    alg_tue_1 = next(l for l in l_tue_1 if l.subject == "Лінійна алгебра та аналітична геометрія")
+    assert "запасна: укриття (003)" in alg_tue_1.room
+    prog_tue = next(l for l in l_tue_1 if l.subject == "Мови програмування")
+    assert "запасна: онлайн/ коридор-укриття" in prog_tue.room
+
+    # Гр. 2
+    _, l_tue_2 = schedule_service.get_lessons_for_date(
+        prog_group="2", math_group="2", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 29)
+    )
+    alg_tue_2 = next(l for l in l_tue_2 if l.subject == "Лінійна алгебра та аналітична геометрія")
+    assert "запасна: укриття (003)" in alg_tue_2.room
+
+    # Гр. 3
+    _, l_tue_3 = schedule_service.get_lessons_for_date(
+        prog_group="3", math_group="3", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 29)
+    )
+    alg_tue_3 = next(l for l in l_tue_3 if l.subject == "Лінійна алгебра та аналітична геометрія")
+    assert "запасна: електроніка (001)" in alg_tue_3.room
+
+    # 3. Середа 5-го тижня (30.09.2026) для гр. 3
+    _, l_wed_3 = schedule_service.get_lessons_for_date(
+        prog_group="3", math_group="3", ukr_group="5", english_group="A51",
+        target_date=date(2026, 9, 30)
+    )
+    discr_wed_3 = next(l for l in l_wed_3 if l.subject == "Дискретна математика")
+    assert "запасна: коридор-укриття" in discr_wed_3.room
+
+    # 4. Четвер 5-го тижня (01.10.2026)
+    # Гр. 5: о 08:30 укриття (003)
+    _, l_thu_5 = schedule_service.get_lessons_for_date(
+        prog_group="5", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 1)
+    )
+    prog_thu_5 = next(l for l in l_thu_5 if l.subject == "Мови програмування" and l.group == "5")
+    assert prog_thu_5.start_time == "08:30"
+    assert "запасна: укриття (003)" in prog_thu_5.room
+
+    # Гр. 2: о 10:00 укриття (003)
+    _, l_thu_2 = schedule_service.get_lessons_for_date(
+        prog_group="2", math_group="2", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 1)
+    )
+    prog_thu_2 = next(l for l in l_thu_2 if l.subject == "Мови програмування" and l.group == "2")
+    assert "запасна: укриття (003)" in prog_thu_2.room
+
+    # Гр. 1: о 11:40 коридор-укриття
+    _, l_thu_1 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 1)
+    )
+    prog_thu_1 = next(l for l in l_thu_1 if l.subject == "Мови програмування" and l.group == "1")
+    assert "запасна: коридор-укриття" in prog_thu_1.room
+
+    # Гр. 3: о 11:40 укриття (003)
+    _, l_thu_3 = schedule_service.get_lessons_for_date(
+        prog_group="3", math_group="3", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 1)
+    )
+    prog_thu_3 = next(l for l in l_thu_3 if l.subject == "Мови програмування" and l.group == "3")
+    assert "запасна: укриття (003)" in prog_thu_3.room
+
+    # Гр. 4: о 13:30 3Д друк
+    _, l_thu_4 = schedule_service.get_lessons_for_date(
+        prog_group="4", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 1)
+    )
+    prog_thu_4 = next(l for l in l_thu_4 if l.subject == "Мови програмування" and l.group == "4")
+    assert "запасна: 3Д друк" in prog_thu_4.room
+
+    # Четвер лекція з ОНС залишається на 5 тижні
+    ons_thu = [l for l in l_thu_1 if "національного супротиву" in l.subject]
+    assert len(ons_thu) == 2
+
+    # 5. П'ятниця 5-го тижня (02.10.2026) для гр. 3
+    _, l_fri_3 = schedule_service.get_lessons_for_date(
+        prog_group="3", math_group="3", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 2)
+    )
+    math_fri_3 = next(l for l in l_fri_3 if l.subject == "Математичний аналіз")
+    assert "запасна: коридор-укриття" in math_fri_3.room
+
+    # 6. Субота 5-го тижня (03.10.2026) для матаналізу
+    _, l_sat_w5 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 3)
+    )
+    math_sat_w5 = next(l for l in l_sat_w5 if l.subject == "Математичний аналіз")
+    assert "запасна: Музей-укриття" in math_sat_w5.room
+
+
+def test_ons_practice_cancellation_oct_3():
+    schedule_service.reload()
+    # 03.10.2026 - субота 5-го тижня. Практик з ОНС НЕ повинно бути!
+    _, l_sat_oct3 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 3)
+    )
+    ons_practices_oct3 = [
+        l for l in l_sat_oct3
+        if "національного супротиву" in l.subject.lower()
+    ]
+    assert len(ons_practices_oct3) == 0, f"Expected 0 ONS practices on 03.10, got: {ons_practices_oct3}"
+
+    # 10.10.2026 - субота 6-го тижня. Практики з ОНС ПОВИННІ бути!
+    _, l_sat_oct10 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 10)
+    )
+    ons_practices_oct10 = [
+        l for l in l_sat_oct10
+        if "національного супротиву" in l.subject.lower()
+    ]
+    assert len(ons_practices_oct10) > 0, "Expected ONS practices on 10.10 (week 6)"
+
+
+
