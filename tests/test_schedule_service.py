@@ -459,4 +459,158 @@ def test_ons_practice_cancellation_oct_3():
     assert len(ons_practices_oct10) > 0, "Expected ONS practices on 10.10 (week 6)"
 
 
+def test_week_6_backup_rooms():
+    schedule_service.reload()
+
+    # 1. Понеділок 6-го тижня (05.10.2026)
+    _, l_mon_w6 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="8", english_group="A51",
+        target_date=date(2026, 10, 5)
+    )
+    discr_mon = next(l for l in l_mon_w6 if l.subject == "Дискретна математика")
+    alg_mon = next(l for l in l_mon_w6 if l.subject == "Алгебра та геометрія")
+    assert "запасна: музей - укриття" in discr_mon.room
+    assert "запасна: музей - укриття" in alg_mon.room
+
+    # 2. Вівторок 6-го тижня (06.10.2026)
+    # Гр. 1
+    _, l_tue_1 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 6)
+    )
+    alg_tue_1 = next(l for l in l_tue_1 if l.subject == "Алгебра та геометрія")
+    assert "запасна: 3Д друк" in alg_tue_1.room
+    prog_tue = next(l for l in l_tue_1 if l.subject == "Мови програмування")
+    assert "запасна: музей - укриття" in prog_tue.room
+
+    # Гр. 2
+    _, l_tue_2 = schedule_service.get_lessons_for_date(
+        prog_group="2", math_group="2", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 6)
+    )
+    alg_tue_2 = next(l for l in l_tue_2 if l.subject == "Алгебра та геометрія")
+    assert "запасна: 3Д друк" in alg_tue_2.room
+
+    # Гр. 3
+    _, l_tue_3 = schedule_service.get_lessons_for_date(
+        prog_group="3", math_group="3", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 6)
+    )
+    alg_tue_3 = next(l for l in l_tue_3 if l.subject == "Алгебра та геометрія")
+    assert "запасна: коридор-укриття" in alg_tue_3.room
+
+    # 3. Середа 6-го тижня (07.10.2026)
+    # Гр. 1 має матаналіз о 11:40 та дискретну о 13:30
+    _, l_wed_1 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 7)
+    )
+    math_wed_1 = next(l for l in l_wed_1 if l.subject == "Математичний аналіз")
+    discr_wed_1 = next(l for l in l_wed_1 if l.subject == "Дискретна математика" and l.start_time == "13:30")
+    assert "запасна: укриття (003)" in math_wed_1.room
+    assert "запасна: коридор укриття" in discr_wed_1.room
+
+    # Гр. 2 має дискретну о 11:40
+    _, l_wed_2 = schedule_service.get_lessons_for_date(
+        prog_group="2", math_group="2", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 7)
+    )
+    discr_wed_2 = next(l for l in l_wed_2 if l.subject == "Дискретна математика" and l.start_time == "11:40")
+    assert "запасна: коридор-укриття" in discr_wed_2.room
+
+    # 4. Четвер 6-го тижня (08.10.2026)
+    # Гр. 6 о 08:30
+    _, l_thu_6 = schedule_service.get_lessons_for_date(
+        prog_group="6", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 8)
+    )
+    prog_thu_6 = next(l for l in l_thu_6 if l.subject == "Мови програмування" and l.start_time == "08:30")
+    assert "запасна: укриття (003)" in prog_thu_6.room
+
+    # Гр. 2 о 10:00
+    _, l_thu_2 = schedule_service.get_lessons_for_date(
+        prog_group="2", math_group="2", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 8)
+    )
+    prog_thu_2 = next(l for l in l_thu_2 if l.subject == "Мови програмування" and l.start_time == "10:00")
+    assert "запасна: коридор-укриття" in prog_thu_2.room
+
+    # Гр. 1 о 11:40
+    _, l_thu_1 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 8)
+    )
+    prog_thu_1 = next(l for l in l_thu_1 if l.subject == "Мови програмування" and l.start_time == "11:40")
+    assert "запасна: музей - укриття" in prog_thu_1.room
+
+    # Гр. 4 о 13:30
+    _, l_thu_4 = schedule_service.get_lessons_for_date(
+        prog_group="4", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 8)
+    )
+    prog_thu_4 = next(l for l in l_thu_4 if l.subject == "Мови програмування" and l.start_time == "13:30")
+    assert "запасна: електроніка (001)" in prog_thu_4.room
+
+    # 5. П'ятниця 6-го тижня (09.10.2026)
+    # Гр. 2 матаналіз о 11:40
+    _, l_fri_2 = schedule_service.get_lessons_for_date(
+        prog_group="2", math_group="2", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 9)
+    )
+    math_fri_2 = next(l for l in l_fri_2 if l.subject == "Математичний аналіз" and l.start_time == "11:40")
+    assert "запасна: коридор- укриття" in math_fri_2.room
+
+    # 6. Субота 6-го тижня (10.10.2026)
+    _, l_sat_w6 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 10)
+    )
+    math_sat_w6 = next(l for l in l_sat_w6 if l.subject == "Математичний аналіз" and l.start_time == "08:30")
+    assert "запасна: Музей-укриття/онлайн" in math_sat_w6.room
+
+
+def test_pokutnyi_shift_to_friday_from_week_7():
+    schedule_service.reload()
+
+    # 1. На 6 тижні (10.10.2026) Покутний ЩЕ Є в суботу о 08:30
+    _, l_sat_w6 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 10)
+    )
+    assert any(l.subject == "Математичний аналіз" and l.start_time == "08:30" and "Покутний" in l.teacher for l in l_sat_w6)
+
+    # І ще НЕМАЄ у п'ятницю 6-го тижня о 13:30
+    _, l_fri_w6 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 9)
+    )
+    assert not any(l.subject == "Математичний аналіз" and l.start_time == "13:30" for l in l_fri_w6)
+
+    # 2. З 7 тижня:
+    # У суботу 7-го тижня (17.10.2026) Покутний о 08:30 СКАСОВАНИЙ
+    _, l_sat_w7 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 17)
+    )
+    assert not any(l.subject == "Математичний аналіз" and l.start_time == "08:30" for l in l_sat_w7)
+
+    # У п'ятницю 7-го тижня (16.10.2026) Покутний ПРОВОДИТЬСЯ о 13:30
+    _, l_fri_w7 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 16)
+    )
+    pokutnyi_fri_w7 = next((l for l in l_fri_w7 if l.subject == "Математичний аналіз" and l.start_time == "13:30"), None)
+    assert pokutnyi_fri_w7 is not None
+    assert "Покутний" in pokutnyi_fri_w7.teacher
+    assert pokutnyi_fri_w7.room == "ауд. 1-313"
+
+    # Також на 8 тижні у п'ятницю (23.10.2026) пара присутня
+    _, l_fri_w8 = schedule_service.get_lessons_for_date(
+        prog_group="1", math_group="1", ukr_group="5", english_group="A51",
+        target_date=date(2026, 10, 23)
+    )
+    assert any(l.subject == "Математичний аналіз" and l.start_time == "13:30" for l in l_fri_w8)
+
+
+
 
